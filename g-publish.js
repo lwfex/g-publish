@@ -2,7 +2,9 @@
  * 自动使用md5值进行版本迭代
  * Created by laiyq@txtws.com on 2016/11/23.
  */
-var gulp = require('gulp');
+var GPublish = {};
+module.exports = GPublish;
+var gulp = GPublish.gulp = require('gulp');
 var fs = require('fs');
 var path = require('path');
 var through = require('through2');
@@ -17,35 +19,49 @@ var revReplace = require('gulp-rev-replace');
 var replace = require('gulp-replace');
 //重命名
 var rename = require('gulp-rename');
+
+//从参数中获取的配置
+var argv = require('minimist')(process.argv.slice(2));
+function getArgv(name) {
+    if (argv[name] === undefined) {
+        console.error('please set param [' + name + ']');
+        process.exit();
+    }
+    return argv[name];
+}
+var staticSrc = getArgv('static-src');
+var staticDist = getArgv('static-dist');
+var pagesSrc = getArgv('pages-src');
+var pagesDist = getArgv('pages-dist');
+
 //资源地址映射
 var resMap = null;
 function getResMap() {
     if (resMap == null) {
-        resMap = JSON.parse(fs.readFileSync('dist/rev-manifest.json'));
+        resMap = JSON.parse(fs.readFileSync('./rev-manifest.json'));
     }
 }
 
-
 //清理目录
 gulp.task('clean', function () {
-    return gulp.src(["dist", "distPages"], {read: false})
+    return gulp.src([staticDist, pagesDist], {read: false})
         .pipe(clean());
 });
 
 // 资源地址加上md5
 gulp.task('reversion', function () {
-    return gulp.src(['static/**/*', '!static/**/*.map'])
+    return gulp.src([staticSrc + '/**/*', '!' + staticSrc + '/**/*.map'])
         .pipe(rev())
-        .pipe(gulp.dest('dist'))
+        .pipe(gulp.dest(staticDist))
         .pipe(rev.manifest())
-        .pipe(gulp.dest('dist'));
+        .pipe(gulp.dest('./'));
 });
 
 //替换CSS中的资源地址
 var _cssPath = '';
 gulp.task('replaceCss', function () {
     getResMap();
-    return gulp.src('dist/**/*.css')
+    return gulp.src(staticDist + '/**/*.css')
         .pipe(through.obj(function (file, enc, cb) {
             _cssPath = file.relative.substr(0, file.relative.indexOf(path.sep));
             this.push(file);
@@ -61,42 +77,35 @@ gulp.task('replaceCss', function () {
             //替换成带hash只的资源地址
             return $1 + $2.replace(path.basename($2), path.basename(resMap[url])) + $3;
         }))
-        .pipe(gulp.dest('dist'));
+        .pipe(gulp.dest(staticDist));
 });
 
 //拷贝js及css的map文件
 gulp.task('copyMap', function () {
     getResMap();
-    return gulp.src('static/**/*.map')
+    return gulp.src(staticSrc + '/**/*.map')
         .pipe(rename(function (p) {
             var dist = resMap[p.dirname + '/' + p.basename];
             if (dist) {
                 p.basename = path.basename(dist);
             }
         }))
-        .pipe(gulp.dest('dist'));
+        .pipe(gulp.dest(staticDist));
 });
 
 //替换页面的资源地址
 gulp.task('replace', function () {
     //加上cdn前缀
-    var manifest = gulp.src("dist/rev-manifest.json")
-        .pipe(replace(/( ")|(: ?")/g, function ($1) {
-            if ($1 == ' "') {
-                return ' "${contextPath}/static/';
-            } else {
-                return ': "http://cdn.example.com/xxxx/'
-            }
-        }))
-        .pipe(gulp.dest('dist'));
+    var manifest = gulp.src("./rev-manifest.json")
+        .pipe(GPublish.htmlReplace)
+        .pipe(gulp.dest('./'));
 
     //替换页面
-    return gulp.src("pages/**/*.html")
+    return gulp.src(pagesSrc + '/**/*.html')
         .pipe(revReplace({manifest: manifest}))
-        .pipe(gulp.dest('distPages'));
+        .pipe(gulp.dest(pagesDist));
 });
 
 gulp.task('default', function () {
-    // runSequence('clean', 'reversion', 'replaceCss', 'replace');
-    runSequence('clean', 'reversion', 'copyMap');
+    runSequence('reversion', ['replaceCss', 'copyMap'], 'replace');
 });
