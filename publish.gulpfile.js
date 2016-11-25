@@ -3,10 +3,10 @@
  */
 var replace = require('gulp-replace');
 var publish = require('./g-publish');
-publish.htmlReplace = replace(/( ")|(: ?")/g, function ($1) {
-    if ($1 == ' "') {
+publish.htmlReplace = replace(/( ")|(: ?")/g, function ($0) {
+    if ($0 == ' "') {
         return ' "${contextPath}/static/';
     } else {
-        return ': "http://localhost:63343/g-publish/dist/'
+        return ': "' + publish.argv['url-prefix']
     }
 });

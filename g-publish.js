@@ -21,7 +21,7 @@ var replace = require('gulp-replace');
 var rename = require('gulp-rename');
 
 //从参数中获取的配置
-var argv = require('minimist')(process.argv.slice(2));
+var argv = GPublish.argv = require('minimist')(process.argv.slice(2));
 function getArgv(name) {
     if (argv[name] === undefined) {
         console.error('please set param [' + name + ']');
@@ -33,6 +33,7 @@ var staticSrc = getArgv('static-src');
 var staticDist = getArgv('static-dist');
 var pagesSrc = getArgv('pages-src');
 var pagesDist = getArgv('pages-dist');
+getArgv('url-prefix');
 
 //资源地址映射
 var resMap = null;
